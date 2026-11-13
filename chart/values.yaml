@@ -1,0 +1,27 @@
+image:
+  repository: ghcr.io/abhishek-patwa-devops/api
+  tag: "none"
+
+
+migrate:
+  repository: ghcr.io/abhishek-patwa-devops/migrate
+
+replicaCount: 1
+
+service:
+  port: 80
+
+
+postgres:
+  image: postgres:16-alpine
+  database: app
+  user: app
+  password: changeme
+
+
+
+resources:
+  requests:
+    memory: 64Mi
+  limits:
+    memory: 128Mi
