@@ -1,0 +1,7 @@
+apiVersion: v2
+name: release-pipeline
+description: Flask API with Postgresql and flyway migration with ARGOCD
+type: application
+appVersion: 0.1.0
+version: 0.1.0
+
