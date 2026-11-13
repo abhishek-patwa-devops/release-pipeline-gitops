@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: "{{ .Values.migrate.repository }}:{{ .Values.image.tag }}"
+          args: ["migrate"]
+          env:
+            - name: FLYWAY_URL
+              value: "jdbc:postgresql://postgres:5432/{{ .Values.postgres.database }}"
+            - name: FLYWAY_USER
+              value: {{ .Values.postgres.user | quote }}
+            - name: FLYWAY_CONNECT_RETRIES
+              value: "10"
+            - name: FLYWAY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: postgres-password
