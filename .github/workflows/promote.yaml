@@ -32,3 +32,26 @@ jobs:
             SOURCE=dev
           fi
           echo "SOURCE=$SOURCE" >> "$GITHUB_ENV"
+
+      - name: Read tag from source
+        run: |
+          TAG=$(yq '.image.tag' envs/$SOURCE/values.yaml)
+          if [ "$TAG" = "none" ]; then
+            echo "Nothing to promote: $SOURCE has no image yet"
+            exit 1
+          fi
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Write tag to target
+        run: yq -i '.image.tag = strenv(TAG)' envs/${{ inputs.target }}/values.yaml
+
+      - name: Commit and push
+        run: |
+          git config user.name "release-pipeline-bot"
+          git config user.email "release-pipeline-bot@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "${{ inputs.target }} already at $TAG, nothing to commit"
+          else
+            git commit -am "${{ inputs.target }}: promote $TAG from $SOURCE"
+            git push
+          fi
