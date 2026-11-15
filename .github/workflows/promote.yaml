@@ -41,3 +41,17 @@ jobs:
             exit 1
           fi
           echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Write tag to target
+        run: yq -i '.image.tag = strenv(TAG)' envs/${{ inputs.target }}/values.yaml
+
+      - name: Commit and push
+        run: |
+          git config user.name "release-pipeline-bot"
+          git config user.email "release-pipeline-bot@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "${{ inputs.target }} already at $TAG, nothing to commit"
+          else
+            git commit -am "${{ inputs.target }}: promote $TAG from $SOURCE"
+            git push
+          fi
