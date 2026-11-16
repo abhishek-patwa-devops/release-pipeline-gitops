@@ -8,6 +8,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "1"
 spec:
   backoffLimit: 2
+  activeDeadlineSeconds: 120
   template:
     spec:
       restartPolicy: Never
