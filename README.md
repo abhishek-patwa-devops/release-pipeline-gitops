@@ -39,8 +39,9 @@ Argo CD applies the chart in waves:
 | 2 | API Deployment | Starts only after migrations succeed |
 
 The migrate Job has `activeDeadlineSeconds: 120`. An image that can't be pulled never counts
-against `backoffLimit`, so without a deadline a bad tag would leave the sync hanging forever.
-With it, the sync fails clearly and the next commit can sync normally.
+against `backoffLimit`, so without a deadline a bad tag would leave the Job hanging forever.
+With it, each attempt is stopped after 120 seconds and wave 2 never starts, so the old API
+pods keep serving.
 
 ## Promotion (`promote.yaml`)
 
@@ -59,8 +60,9 @@ Always checks out `main`, uses the built-in `GITHUB_TOKEN` (`contents: write`) a
 ## Failure detection and rollback
 
 **Detection**
-- Bad image tag → the migrate Job (wave 1) can't pull it, hits its deadline and the sync is
-  marked **Failed**. Wave 2 never runs, so the old API pods keep serving.
+- Bad image tag → the migrate Job (wave 1) can't pull it and hits its deadline. Wave 2 never
+  runs, so the old API pods keep serving. Argo CD's automated sync then retries the failed
+  operation, so the app stays in a retrying sync instead of settling on **Failed**.
 - Image pulls but the app is broken → the new pod never passes `/readyz`. The rolling update
   doesn't remove old pods until new ones are Ready, so users stay on the old version, and
   Argo CD shows the app as **Degraded / Progressing**.
@@ -73,8 +75,14 @@ git revert <commit>                          # new commit that puts the previous
 git push
 ```
 
-Argo CD sees the new commit and syncs the previous image. Nothing is rebuilt, because that
-image is already in GHCR, and the revert itself stays in the history.
+Argo CD syncs the previous image. Nothing is rebuilt, because that image is already in GHCR,
+and the revert itself stays in the history.
+
+I tested this on dev by pushing a tag that doesn't exist (`sha-0000000`) and reverting it.
+While Argo CD was still retrying the failed sync, it did not pick up the revert commit. I had
+to **Terminate** the running sync in the UI and **Sync** again; after that, dev was back on the
+previous version within a minute. Users were never affected, because the old pods kept serving.
+This manual step is why alerts on sync failures and Argo Rollouts are next on the list below.
 
 ## Bootstrap
 
@@ -98,7 +106,8 @@ new Application is added with `kubectl apply` once.
   push through a GitHub App with a bypass. Doing it now would also block the bot.
 - **Automatic rollback.** Today rollback is a manual `git revert`. Next would be Argo Rollouts
   with an analysis step that rolls back on failed health checks, plus a `tag` input on
-  `promote.yaml` to redeploy a specific known-good version.
+  `promote.yaml` to redeploy a specific known-good version. Argo CD notifications on sync
+  failures, so a stuck sync is noticed without someone watching the UI.
 - **Smoke tests before promotion**, so staging/prod can only receive a tag that passed in the env before.
 - **App-of-apps**, so new Applications are created from Git instead of `kubectl apply`.
 - **Secrets** from a secret manager (External Secrets / Sealed Secrets) instead of the chart.
