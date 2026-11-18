@@ -84,6 +84,15 @@ to **Terminate** the running sync in the UI and **Sync** again; after that, dev 
 previous version within a minute. Users were never affected, because the old pods kept serving.
 This manual step is why alerts on sync failures and Argo Rollouts are next on the list below.
 
+## Prerequisites
+
+- A Kubernetes cluster. I used a single-node kind cluster.
+- kubectl, and Argo CD installed in the `argocd` namespace (tested with v3.6.0).
+- Helm 3, only to render the chart locally (`helm template chart -f envs/dev/values.yaml`).
+  Argo CD renders it in the cluster.
+- Images published to GHCR by the app repo.
+- For `promote.yaml`: a GitHub Environment called `production` with a required reviewer.
+
 ## Bootstrap
 
 ```bash
@@ -98,6 +107,8 @@ new Application is added with `kubectl apply` once.
 - Local single-node cluster with Argo CD installed and the repo public (no repo credentials).
 - Postgres runs in-cluster per environment; in a real setup it would be a managed database.
 - Secrets are plain placeholders in the chart, for the local prototype only.
+- Argo CD polls Git every 3 minutes; there is no webhook because the cluster is local. A new
+  commit can take up to 3 minutes to deploy; **Refresh** in the UI picks it up immediately.
 
 ## Known limitations and what I would do next
 
